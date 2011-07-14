@@ -5,7 +5,7 @@ from PySide import QtCore,QtGui
 
 ENDCHAR = chr(64) # @ = 64, \xxf = 255
 PORT = 50007
-
+#blabla
 
 def getNewSocket():
     
