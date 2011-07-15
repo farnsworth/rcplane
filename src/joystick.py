@@ -5,22 +5,12 @@ from PySide import QtCore,QtGui
 
 ENDCHAR = chr(64) # @ = 64, \xxf = 255
 PORT = 50007
-#blabla
 
-def getNewSocket():
+def getNewAddr():
     
     remote_host,val = QtGui.QInputDialog.getText(None,"Connect to ...","IP address:",text="0.rcplane")
-    if (val):    
-        s = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-        s.settimeout(1.0)
-        try:
-            s.connect( (remote_host, PORT) )
-            #controllare che se da errore non torni s ma none!#
-            return s    
-        except Exception as inst:
-            p = QtGui.QMessageBox()
-            p.setText( "Error " + inst.__str__())
-            p.exec_()
+    if (val):
+        return (remote_host,PORT)
 
     return None
     
@@ -85,15 +75,17 @@ class joystickVisualizer(QtGui.QDialog):
     bsize = 40
     frameSize = 5
     
-    def __init__(self,id,socket = None):
+    def __init__(self,id,addr = None):
         super(joystickVisualizer, self).__init__()
-        self.socket = socket
+        self.addr = addr
+        self.socket = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
+        self.socket.settimeout(1.0)
         self.id = id
         self.initUI()
         self.initJoystick()
         
         #self.connect(self.openCloseButton, QtCore.SIGNAL('clicked()'), self.openClose)
-        if (self.socket == None):
+        if (self.addr == None):
             self.connect(self.connectToButton, QtCore.SIGNAL('clicked()'), self.connectTo)
 
         self.show()
@@ -158,13 +150,10 @@ class joystickVisualizer(QtGui.QDialog):
         temp.setPos(x0 + self.frameSize+3*delta,y)
         temp.setFont(font)
         
-        if (self.socket == None):
-            self.isConnected = False
+        if (self.addr == None):
             self.connectToButton = QtGui.QPushButton('Connect to...', self)
             self.connectToButton.setFixedWidth(150)
             vbox.addWidget(self.connectToButton,0,QtCore.Qt.AlignCenter)
-        else:
-            self.isConnected = True
              
         self.setLayout(vbox)
         self.setWindowTitle(pygame.joystick.Joystick( self.id ).get_name())
@@ -172,18 +161,14 @@ class joystickVisualizer(QtGui.QDialog):
         
     def connectTo(self):
         
-        if (self.isConnected):
-            self.isConnected = False
-            self.socket.close()
-            self.socket = None
+        if (self.addr != None):
+            self.addr = None
             self.connectToButton.setText("Connect to ...")
         else:
-            self.socket = getNewSocket()
-            if (self.socket == None):
-                self.isConnected = False
-            else:
+            self.addr = getNewAddr()
+            print self.addr
+            if (self.addr != None):
                 self.connectToButton.setText("Close connection")
-                self.isConnected = True
                 
 
 
@@ -205,8 +190,7 @@ class joystickVisualizer(QtGui.QDialog):
 
     def closeEvent(self,e):
         QtGui.QGraphicsView.closeEvent(self,e)
-        if (self.socket != None):
-            self.socket.close()
+        self.socket.close()
         if (self.joystick.get_init()):
             self.joystick.quit()
         if (pygame.joystick.get_init()):
@@ -222,22 +206,22 @@ class joystickVisualizer(QtGui.QDialog):
                 string = None
                 if ( e.type == pygame.JOYAXISMOTION ):
                     self.setAxes(e.dict['axis'],e.dict['value'])
-                    if (self.isConnected) and (e.dict['axis'] != 2):
+                    if (self.addr != None) and (e.dict['axis'] != 2):
                         iaxis =e.dict['axis']
                         string = "A"+str(self.lineaxes.index(iaxis))+"%.2f" %e.dict['value']+ENDCHAR
                         print string
                 elif ( e.type == pygame.JOYBUTTONDOWN ):
                     self.setButtonDown( e.dict['button'] )
-                    if (self.isConnected):
+                    if (self.addr != None):
                         string = "B"+str(e.dict['button'])+"D"+ENDCHAR
                 elif ( e.type == pygame.JOYBUTTONUP ):
                     self.setButtonUp( e.dict['button'] )
-                    if (self.isConnected):
+                    if (self.addr != None):
                         string = "B"+str(e.dict['button'])+"U"+ENDCHAR
                         
-                if (string != None) and (self.isConnected):
+                if (string != None) and (self.addr != None):
                     try:
-                        self.socket.send(string)
+                        self.socket.sendto(string,self.addr)
                     except Exception as inst:
                         p = QtGui.QMessageBox()
                         p.setText( "Error " + inst.__str__())
