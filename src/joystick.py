@@ -73,6 +73,7 @@ class joystickVisualizer(QtGui.QDialog):
     dist = 10
     psize = 10
     bsize = 40
+    connButSize = 15
     frameSize = 5
     
     def __init__(self,id,addr = None):
@@ -88,6 +89,12 @@ class joystickVisualizer(QtGui.QDialog):
         if (self.addr == None):
             self.connect(self.connectToButton, QtCore.SIGNAL('clicked()'), self.connectTo)
 
+        self.timerCheckConnection = QtCore.QTimer()
+        self.connect(self.timerCheckConnection, QtCore.SIGNAL("timeout()"), self.checkConnection )
+        #self.timerCheckConnection.timeout.connect(self.checkConnection())
+        #self.timerCheckConnection.setInterval(1000)
+        self.timerCheckConnection.start(5000)
+
         self.show()
 
     def initUI(self):
@@ -101,6 +108,10 @@ class joystickVisualizer(QtGui.QDialog):
         self.rBrush = QtGui.QBrush()
         self.rBrush.setStyle(QtCore.Qt.SolidPattern)
         self.rBrush.setColor( QtGui.QColor("red") )
+        
+        self.gBrush = QtGui.QBrush()
+        self.gBrush.setStyle(QtCore.Qt.SolidPattern)
+        self.gBrush.setColor( QtGui.QColor("green") )
         
         self.wBrush = QtGui.QBrush()
         self.wBrush.setStyle(QtCore.Qt.SolidPattern)
@@ -123,6 +134,8 @@ class joystickVisualizer(QtGui.QDialog):
         self.circles.append( QtGui.QGraphicsEllipseItem(None,self.scene) )
         self.circles[0].setBrush(self.rBrush)
         self.circles[1].setBrush(self.rBrush)
+        self.circles[0].setPen( QtGui.QPen(QtCore.Qt.NoPen))
+        self.circles[1].setPen( QtGui.QPen(QtCore.Qt.NoPen))
         
         self.buttons = []
         y = self.frameSize + self.dist+self.rectSide
@@ -150,25 +163,52 @@ class joystickVisualizer(QtGui.QDialog):
         temp.setPos(x0 + self.frameSize+3*delta,y)
         temp.setFont(font)
         
+        self.connCircle = QtGui.QGraphicsEllipseItem(self.frameSize+self.rectSide+self.dist/2-self.connButSize/2,
+                                                     self.frameSize+self.dist+self.rectSide+self.bsize/2,
+                                                     self.connButSize,
+                                                     self.connButSize,None,self.scene)
+        self.connCircle.setPen( QtGui.QPen(QtCore.Qt.NoPen))
+        
         if (self.addr == None):
             self.connectToButton = QtGui.QPushButton('Connect to...', self)
             self.connectToButton.setFixedWidth(150)
             vbox.addWidget(self.connectToButton,0,QtCore.Qt.AlignCenter)
+            self.connCircle.setBrush(self.rBrush)
+        else:
+            self.connCircle.setBrush(self.gBrush)
+        
              
         self.setLayout(vbox)
         self.setWindowTitle(pygame.joystick.Joystick( self.id ).get_name())
         
         
-    def connectTo(self):
-        
+    def checkConnection(self):
         if (self.addr != None):
-            self.addr = None
-            self.connectToButton.setText("Connect to ...")
+            try:
+                self.socket.sendto("c@",self.addr)
+                self.socket.recvfrom(8)
+                #self.connCircle.setBrush(self.gBrush)
+            except Exception as e:
+                self.resetConnection(e.__str__())
+    
+    def resetConnection(self,message=""):
+        self.addr = None
+        self.connCircle.setBrush(self.rBrush)
+        self.connectToButton.setText("Connect to ...")
+        if (message != ""):
+            p = QtGui.QMessageBox()
+            p.setText( "Error " + message)
+            p.exec_()
+            
+    def connectTo(self):
+        if (self.addr != None):
+            self.resetConnection()
         else:
             self.addr = getNewAddr()
-            print self.addr
             if (self.addr != None):
                 self.connectToButton.setText("Close connection")
+                self.connCircle.setBrush(self.gBrush)
+                self.checkConnection()
                 
 
 
@@ -198,6 +238,7 @@ class joystickVisualizer(QtGui.QDialog):
         if (pygame.display.get_init()):
             pygame.display.quit()
         self.timer.stop()
+        self.timerCheckConnection.stop()
         
     def joystickEvent(self):
         le = pygame.event.get()
@@ -223,9 +264,7 @@ class joystickVisualizer(QtGui.QDialog):
                     try:
                         self.socket.sendto(string,self.addr)
                     except Exception as inst:
-                        p = QtGui.QMessageBox()
-                        p.setText( "Error " + inst.__str__())
-                        p.exec_()
+                        self.resetConnection(inst.__str__())
                     
     def setButtonDown(self,ibutton):
         if (self.buttonibutton.count(ibutton) > 0):        
