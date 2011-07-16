@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import pygame
 import socket
 import sys # controllare se e' necessario
@@ -7,6 +9,10 @@ ENDCHAR = chr(64) # @ = 64, \xxf = 255
 PORT = 50007
 
 def getNewAddr():
+    """
+    Function that ask for an IP address and gives back an addr object.
+    If Cancel button is pressed it returns None.
+    """
     
     remote_host,val = QtGui.QInputDialog.getText(None,"Connect to ...","IP address:",text="0.rcplane")
     if (val):
@@ -16,6 +22,11 @@ def getNewAddr():
     
         
 class joystickSelector(QtGui.QDialog):
+    """
+    QDialog object that shows a list of available joysticks and gives back the
+    id of the selected joystick.
+    """
+    
     def __init__(self):
         super(joystickSelector, self).__init__()
         
@@ -46,6 +57,9 @@ class joystickSelector(QtGui.QDialog):
         self.setLayout(vbox)
         
     def updateJoystickList(self):
+        """
+        Function that updates the joystick list.
+        """
         if (pygame.joystick.get_init()):
             pygame.joystick.quit()
             
@@ -68,6 +82,11 @@ class joystickSelector(QtGui.QDialog):
 
 
 class joystickVisualizer(QtGui.QDialog):
+    """
+    QDialog that:
+    1) shows the axis positions and pressed button
+    2) send messages with joystick events to a server 
+    """
     
     rectSide = 120
     dist = 10
@@ -187,7 +206,6 @@ class joystickVisualizer(QtGui.QDialog):
             try:
                 self.socket.sendto("c@",self.addr)
                 self.socket.recvfrom(8)
-                #self.connCircle.setBrush(self.gBrush)
             except Exception as e:
                 self.resetConnection(e.__str__())
     
@@ -280,7 +298,6 @@ class joystickVisualizer(QtGui.QDialog):
             
     def setAxes(self,iaxes,val):
         newVal = val*(self.rectSide/2)
-        
         if (self.lineaxes.count(iaxes) > 0):        
             line = self.lineaxes.index(iaxes)
             
@@ -317,7 +334,7 @@ class joystickVisualizer(QtGui.QDialog):
 
 
 def main():
-    app = QtGui.QApplication(sys.argv)
+    QtGui.QApplication(sys.argv)
     jS = joystickSelector()
     if jS.exec_():
         if (len(jS.listWidget.selectedItems()) == 1):
